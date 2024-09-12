@@ -1,0 +1,7 @@
+- [ ] Use [Agnostic Image](https://github.com/kubernetes/kubernetes/tree/master/test/images/agnhost):
+	- [ ] `agnhost` is an extendable CLI that behaves and outputs the same expected content, no matter the underlying OS. The name itself reflects this idea, being a portmanteau word of the words agnostic and host. The image was created for testing purposes, reducing the need for having different test cases for the same tested behaviour.
+	- [ ] The `agnhost` binary has several subcommands which are can be used to test different Kubernetes features; their behaviour and output is not affected by the underlying OS.
+	- [ ] Tests:
+		- [ ] Deploy Linux VM and a pod on it with the `agnhost` image. Verify connectivity to the pod.
+		- [ ] Deploy Windows VM and a pod on it with the `agnhost` image. Verify connectivity to the pod.
+			- [ ] Verify connectivity between the pods on the different VMs.

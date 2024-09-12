@@ -1,0 +1,1 @@
+Explains really well the installation process: https://go.dev/doc/install

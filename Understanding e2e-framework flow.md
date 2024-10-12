@@ -1,4 +1,10 @@
---> Createa new Environment
+## Goal
+- [ ] Easy to maintain and understand testing repository
+	- [ ] Usage of already known structures - JSON and YAML - inside `testdata` directory
+	- [ ] [Table-Driven tests](https://go.dev/wiki/TableDrivenTests)
+	- [ ] Ability to work with every API resource using a single client
+
+--> Create a new Environment
 	--> The Environment type is an interface, therefore, the `testEnv` works here, as it creates the different functions the Environment interface requires.
 ```
 ~package env - sigs.k8s.io/e2e-framework/pkg/env - env.go
@@ -214,3 +220,99 @@ func ResolveKubeConfigFile() string {
 	return ""
 }
 ```
+
+#### Summary
+```
+// Will create a new kclient.Client which contains both *rest.Config to interact // with the cluster and a *resources.Resources which can be used to interact with // the API and the different resources doing CRUD operations.
+client, err := config.NewClient()
+```
+
+### Schemes
+
+#### The Problem
+The `k8s.io/api/core/v1` module has definitions for core Kubernetes API resources, pods, service accounts, deployments and more, in its scheme.
+Therefore, the default Kubernetes RestAPI client knows how to interact with these resources natively, serialize and deserialize them.
+
+In order to allow interaction with more CustomResourceDefinitions operators are providing, it is needed to add these resources to the scheme.
+#### Goal
+- [ ] Ability to work with every API resource using a single client
+#### Understanding the Scheme and `AddToScheme`
+- In Kubernetes, the **scheme** is used to map Go types to Kubernetes API objects and vice versa. When working with custom resources (like `CronTab`), you need to register the custom types with the scheme so the client knows how to serialize/deserialize them.
+- The `AddToScheme` function registers a custom resource type with the provided scheme, allowing the client to work with it.
+##### Example:
+
+Lets say we want to list all VirtualMachineInstances in a certain namespace, "core". For that, using the `e2e-framework` Resources's type List method, like so:
+```
+import (
+    "context"
+    "testing"
+    
+    v1 "k8s.io/api/core/v1"
+    kubev1 "kubevirt.io/api/core/v1"
+    "sigs.k8s.io/e2e-framework/pkg/envconf"
+    "sigs.k8s.io/e2e-framework/pkg/features"
+)
+
+func TestAPICall(t *testing.T) {
+    feat := features.New("API Feature").
+        WithLabel("type", "API").
+        Assess("test message", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
+            var vmis kubev1.VirtualMachineInstanceList
+
+            if err := c.Client().Resources("core").List(ctx, &vmis); err != nil {
+                t.Error(err)
+            }
+
+            t.Logf("Got VMIs %v in namespace", len(vmis.Items))
+            if len(vmis.Items) == 0 {
+                t.Errorf("Expected >0 VMIs in core but got %v", len(vmis.Items))
+            }
+            return ctx
+        }).Feature()
+
+    // testsEnvironment is the one global that we rely on; it passes the context
+    // and *envconf.Config to our feature.
+    testsEnvironment.Test(t, feat)
+}
+```
+
+You will notice you get the following error:
+```
+$ no kind is registered for the type v1.VirtualMachineInstanceList in scheme "pkg/runtime/scheme.go:100"
+```
+
+Lucky for us, Kubevirt is a big enough project and they have already implemented for us the `AddToScheme` function to add each and every kind they provide to the runtime scheme.
+
+All we have to do is adding the following line:
+```
+kubev1.AddToScheme(c.Client().Resources().GetScheme())
+```
+
+And the full function:
+```
+func TestAPICall(t *testing.T) {
+    feat := features.New("API Feature").
+        WithLabel("type", "API").
+        Assess("test message", func(ctx context.Context, t *testing.T, c *envconf.Config) context.Context {
+            var vmis kubev1.VirtualMachineInstanceList
+			
+			kubev1.AddToScheme(c.Client().Resources().GetScheme()) // <<<< Added line
+			
+            if err := c.Client().Resources("core").List(ctx, &vmis); err != nil {
+                t.Error(err)
+            }
+
+            t.Logf("Got VMIs %v in namespace", len(vmis.Items))
+            if len(vmis.Items) == 0 {
+                t.Errorf("Expected >0 VMIs in core but got %v", len(vmis.Items))
+            }
+            return ctx
+        }).Feature()
+
+    // testsEnvironment is the one global that we rely on; it passes the context
+    // and *envconf.Config to our feature.
+    testsEnvironment.Test(t, feat)
+}
+```
+
+See [CRDs example](https://github.com/kubernetes-sigs/e2e-framework/tree/517dbe336d8ca0241a8a904555e865cb0ee74549/examples/crds) from `e2e-framework` for a `AddToScheme` function to add custom CRDs to scheme.

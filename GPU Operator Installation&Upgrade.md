@@ -408,3 +408,17 @@ $ oc exec nvidia-driver-daemonset-412.86.202309190812-0-jmtnb -- nvidia-smi drai
 [ 7856.304303] NVRM: GPU 0000:41:00.0: rm_init_adapter failed, device minor number 1
 
 ```
+
+- [ ] The need to perform operations on the node in the case of a defect GPU card
+	- [ ] This is against our change policy and could potentially harm clientele workload
+	- [ ] There is no certainty regarding whether the operation would succeed
+		- [ ] Whether:
+			- [ ] Whether you would be able to drain the card
+			- [ ] Whether you would be able to unbind/remove the card
+			- [ ] etc
+	- [ ] There is no certainty when and why an operation on a node should be performed in case of a card defect
+- [ ] There is a lack of understanding, at least on my part, when and why a GPU node should be drained and\or rebooted during installation\upgrade\uninstall of the operator
+	- [ ] My main issue is that the nvidia driver remains on the nodes after uninstalling the operator. In order to remove it, it is required to drain (to ensure the graceful shutdown of clientele workload) and reboot the node, to ensure the driver is gone. Then, after reinstalling, another reboot is needed to ensure clean and operational state, if I understood correctly.
+- [ ] **Lack of understanding why installation\\upgrade failed:** Many times, if not all times, installation and\\or upgrade failed, supposably because a defect GPU card or because the GSP (something something) was included in the driver version and A10 cards did not support it. My main issue is not that the installation and\\or upgrade failed, its that it succeeded some of the times. It is the inconsistency.
+- [ ] The operator did an unpredictable reboot to a node, which was also without a drain operation.
+- [ ] Lack of immediate line of support
